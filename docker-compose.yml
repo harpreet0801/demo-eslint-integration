@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # React App Service (built and served by Nginx)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"      # HTTP
+      - "443:443"    # HTTPS (if configured)
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Nginx reverse proxy for load balancing (advanced setup)
+  # Load balancer in front of multiple web instances
+  # Uncomment if you want to run multiple app instances
+  #
+  # nginx-lb:
+  #   image: nginx:alpine
+  #   ports:
+  #     - "8080:80"
+  #   volumes:
+  #     - ./nginx-lb.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - web
+  #   restart: unless-stopped
+
+volumes:
+  # Can be used for persistent data if needed
+  app_data:
+    driver: local

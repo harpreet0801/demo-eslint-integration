@@ -1,0 +1,202 @@
+╔════════════════════════════════════════════════════════════════════╗
+║                  DOCKER vs DOCKER COMPOSE                         ║
+║                       Execution Flow                              ║
+╚════════════════════════════════════════════════════════════════════╝
+
+┌─ YOUR COMMAND ────────────────────────────────────────────────────┐
+│                                                                   │
+│  $ docker-compose up -d                                          │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┬─┘
+                                                                   │
+                  WHO RUNS? ↓ DOCKER COMPOSE FIRST
+                                                                   │
+┌─────────────────────────────────────────────────────────────────┴─┐
+│ ▓▓▓ DOCKER COMPOSE ▓▓▓ (Orchestrator - reads configuration)    │
+│                                                                   │
+│  1. Reads: docker-compose.yml                                    │
+│  2. Sees: service "web" needs building                           │
+│  3. Calls: Docker to build                                       │
+│  4. Calls: Docker to run                                         │
+│  5. Manages: Container lifecycle                                 │
+└─────────────────────────────────────────────────────────────────┬─┘
+                                                                   │
+                       WHO DOES ACTUAL WORK? ↓ DOCKER
+                                                                   │
+┌─────────────────────────────────────────────────────────────────┴─┐
+│ ▓▓▓ DOCKER ▓▓▓ (Core technology - does the work)               │
+│                                                                   │
+│  PHASE 1: BUILD (from Dockerfile)                                │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ $ docker build -t hello-world-react .                   │   │
+│  │                                                          │   │
+│  │ Stage 1: Build                                           │   │
+│  │ ├─ FROM node:18-alpine                                  │   │
+│  │ ├─ WORKDIR /app                                         │   │
+│  │ ├─ COPY package*.json                                   │   │
+│  │ ├─ RUN npm ci                 ← Installs deps           │   │
+│  │ ├─ COPY . .                                             │   │
+│  │ └─ RUN npm run build           ← Creates dist/          │   │
+│  │    Result: 800MB (intermediate, discarded)              │   │
+│  │                                                          │   │
+│  │ Stage 2: Runtime                                         │   │
+│  │ ├─ FROM nginx:alpine                                    │   │
+│  │ ├─ COPY nginx.conf                                      │   │
+│  │ ├─ COPY --from=builder /app/dist → /usr/share/nginx    │   │
+│  │ ├─ EXPOSE 80                                            │   │
+│  │ └─ CMD ["nginx", "-g", "daemon off;"]                   │   │
+│  │    Result: 50MB final image ✓                           │   │
+│  │                                                          │   │
+│  │ Output: Image created as "demo_web:latest"              │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  PHASE 2: RUN (from docker-compose.yml settings)                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ $ docker run -d -p 80:80 -e NODE_ENV=production ...    │   │
+│  │                                                          │   │
+│  │ ├─ Map ports: 80:80                                     │   │
+│  │ ├─ Set environment: NODE_ENV=production                 │   │
+│  │ ├─ Restart policy: unless-stopped                       │   │
+│  │ ├─ Health checks: Every 30 seconds                      │   │
+│  │ └─ Start nginx                                          │   │
+│  │                                                          │   │
+│  │ Output: Container created as "demo_web_1"               │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┬─┘
+                                                                   │
+                           RESULT ↓
+                                                                   │
+┌─────────────────────────────────────────────────────────────────┴─┐
+│ ✅ YOUR APP IS RUNNING                                            │
+│                                                                   │
+│  ┌────────────────────────────────────────────────────────┐      │
+│  │ Container: demo_web_1                                 │      │
+│  │ Image: demo_web:latest (50MB)                         │      │
+│  │ Port: 80/tcp → 0.0.0.0:80                             │      │
+│  │ Status: Up (health checks: passing)                   │      │
+│  │ Process: Nginx serving React app                      │      │
+│  │                                                        │      │
+│  │ Access at: http://localhost                           │      │
+│  │                                                        │      │
+│  │ You see: "Hello World! 🌍"                            │      │
+│  │         "Welcome to your React app with Docker..."    │      │
+│  └────────────────────────────────────────────────────────┘      │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════
+
+ANSWER TO YOUR QUESTION: "Which will run? Docker or Compose?"
+
+  EXECUTION ORDER:
+
+  1️⃣  Docker Compose ← YOU RUN THIS FIRST
+      $ docker-compose up -d
+      └─ Reads configuration from docker-compose.yml
+
+  2️⃣  Docker ← CALLED BY DOCKER COMPOSE
+      $ docker build -t hello-world-react .
+      └─ Executes Dockerfile (builds image)
+
+  3️⃣  Docker ← CALLED BY DOCKER COMPOSE (again)
+      $ docker run -p 80:80 -e NODE_ENV=production ...
+      └─ Runs container with settings from compose
+
+  4️⃣  Nginx ← STARTED INSIDE CONTAINER
+      CMD ["nginx", "-g", "daemon off;"]
+      └─ Serves your React app
+
+  5️⃣  React App ← NOW ACCESSIBLE
+      http://localhost
+      └─ "Hello World! 🌍"
+
+
+═══════════════════════════════════════════════════════════════════════
+
+RELATIONSHIP:
+
+┌─────────────────────────────────────────────────────────┐
+│  docker-compose (Command Line Tool)                     │
+│  ├─ Reads YAML file (configuration)                     │
+│  ├─ Calls Docker API (automation)                       │
+│  └─ Manages container lifecycle                         │
+└─────────┬───────────────────────────────────────────────┘
+          │
+          │ Uses
+          ▼
+┌─────────────────────────────────────────────────────────┐
+│  Docker (Core Runtime)                                  │
+│  ├─ Builds images from Dockerfile                       │
+│  ├─ Runs containers                                     │
+│  ├─ Manages networks                                    │
+│  └─ Manages volumes                                     │
+└─────────┬───────────────────────────────────────────────┘
+          │
+          │ Executes
+          ▼
+┌─────────────────────────────────────────────────────────┐
+│  Your Dockerfile (Build Instructions)                   │
+│  ├─ Stage 1: Build React app with Node.js              │
+│  └─ Stage 2: Serve with Nginx                          │
+└─────────┬───────────────────────────────────────────────┘
+          │
+          │ Creates/Runs
+          ▼
+┌─────────────────────────────────────────────────────────┐
+│  Container (Running Application)                        │
+│  ├─ Nginx running inside                               │
+│  ├─ React app served                                   │
+│  └─ Accessible at http://localhost                     │
+└─────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════
+
+ANALOGY: Movie Production
+
+  docker-compose = Producer
+    ├─ Reads script (docker-compose.yml)
+    ├─ Hires crew
+    └─ Manages schedule
+
+  docker = Film Crew
+    ├─ Builds sets (from blueprints = Dockerfile)
+    ├─ Sets up equipment
+    └─ Films the movie (creates container)
+
+  Dockerfile = Movie Script/Blueprint
+    ├─ Stage 1: Story/Script
+    └─ Stage 2: Final Edit
+
+  Container = Movie
+    ├─ What people watch
+    └─ What users interact with
+
+
+═══════════════════════════════════════════════════════════════════════
+
+IN PRACTICE:
+
+You type ONE command:
+  $ docker-compose up -d
+
+Behind the scenes, THREE things happen:
+  1. Docker Compose parses configuration
+  2. Docker builds the image (from Dockerfile)
+  3. Docker runs the container (with compose settings)
+
+Then you access it:
+  http://localhost
+
+═══════════════════════════════════════════════════════════════════════
+
+KEY POINT:
+
+✅ Both Docker and Docker Compose must run
+✅ Docker Compose doesn't replace Docker
+✅ Docker Compose just automates Docker for you
+✅ Docker is like the engine, Compose is like cruise control
+
+═══════════════════════════════════════════════════════════════════════

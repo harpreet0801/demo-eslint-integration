@@ -1,0 +1,40 @@
+name: Quality Checks on Pull Requests
+
+on:
+  pull_request:
+    branches:
+      - master
+      - develop
+
+jobs:
+  lint:
+    name: Lint and Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Build React app
+        run: npm run build
+
+      - name: Check build artifacts
+        run: |
+          if [ ! -d "dist" ]; then
+            echo "❌ Build failed: dist directory not found"
+            exit 1
+          fi
+          echo "✅ Build successful! Build artifacts:"
+          ls -lah dist/

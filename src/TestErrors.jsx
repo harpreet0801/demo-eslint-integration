@@ -27,9 +27,9 @@ function TestErrors() {
   // Secrets committed to source code are exposed to anyone with repo access.
   // CWE-798 | CRITICAL severity
   // -----------------------------------------------------------------------
-  const API_KEY = 'sk-prod-abc123secretkey9876'
+  const API_KEY = 'sk-prod-abc123secretkey9876'         // eslint-disable-line no-unused-vars
   const DB_PASSWORD = 'SuperSecret@Password123'
-  const AWS_SECRET = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+  const AWS_SECRET = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY' // eslint-disable-line no-unused-vars
 
   // -----------------------------------------------------------------------
   // VULNERABILITY 3: Insecure use of eval()
@@ -77,7 +77,7 @@ function TestErrors() {
   // Merging user-controlled objects without validation.
   // CWE-1321 | HIGH severity
   // -----------------------------------------------------------------------
-  const mergeConfig = (userConfig) => {
+  const mergeConfig = (userConfig) => { // eslint-disable-line no-unused-vars
     const config = {}
     for (let key in userConfig) {
       config[key] = userConfig[key] // Allows __proto__ pollution

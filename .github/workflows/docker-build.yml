@@ -47,11 +47,37 @@ jobs:
           echo "✅ Build successful! Build artifacts:"
           ls -lah dist/
 
-  # Job 2: Docker Build & Push - Only runs if lint job passes
+  # Job 2: CodeQL Security Scan - Must pass before Docker build
+  codeql:
+    name: CodeQL Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"
+
+  # Job 3: Docker Build & Push - Only runs if lint AND CodeQL pass
   docker-build:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    needs: lint  # ← KEY: This job depends on lint passing first
+    needs: [lint, codeql]  # ← Blocks deployment if ESLint OR CodeQL fails
     permissions:
       contents: read
       packages: write
@@ -94,7 +120,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           
- # Job 3: Deploy to EC2 - Only runs after Docker image is pushed
+ # Job 4: Deploy to EC2 - Only runs after Docker image is pushed
 
   deploy:
     name: Deploy to EC2
